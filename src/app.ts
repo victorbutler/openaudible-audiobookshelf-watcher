@@ -14,7 +14,25 @@ dotenv.config();
 const error = colors.red.bold,
   notice = colors.blue;
 
-export async function ProcessArgs(originalArgs: string[]) {
+type Arguments =
+  | {
+      [x: string]: unknown;
+      input: string;
+      output: string;
+      template: string;
+      _: (string | number)[];
+      $0: string;
+    }
+  | {
+      [x: string]: unknown;
+      input: string;
+      output: string;
+      template: string;
+      _: (string | number)[];
+      $0: string;
+    };
+
+export async function ProcessArgs(originalArgs: string[]): Promise<Arguments> {
   const argParser = yargs(originalArgs)
     .scriptName('app.js')
     .usage('$0 [args]')
@@ -62,8 +80,8 @@ export async function ProcessArgs(originalArgs: string[]) {
   return argv;
 }
 
-export function ProcessBook(argv) {
-  return async function (book: Book) {
+export function ProcessBook(argv: Arguments) {
+  return async function (book: Book): Promise<string> {
     try {
       // Search `template` string for {var} format and prepare vars
       const vars = [...argv.template.matchAll(/\{[\w_]+\}/g)].map((clean) =>
@@ -104,7 +122,7 @@ export function ProcessBook(argv) {
   };
 }
 
-async function App() {
+async function App(): Promise<void> {
   // Get input and output paths
   const argv = await ProcessArgs(process.argv.slice(2));
   // Look for books.json in input

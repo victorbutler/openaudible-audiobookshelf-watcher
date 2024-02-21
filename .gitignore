@@ -15,6 +15,7 @@ build/
 # VS Code
 .vscode
 !.vscode/tasks.js
+!.vscode/extensions.json
 
 # JetBrains IDEs
 .idea/
