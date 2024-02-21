@@ -11,15 +11,12 @@
     "@types/node": "~20",
     "@typescript-eslint/eslint-plugin": "~6.15",
     "@typescript-eslint/parser": "~6.15",
-    "colors-cli": "^1.0.33",
-    "dotenv": "^16.4.5",
     "eslint": "~8.56",
     "eslint-config-prettier": "~9.1",
     "prettier": "~3.1",
     "rimraf": "~5.0",
     "ts-api-utils": "~1.0",
-    "typescript": "~5.3",
-    "yargs": "^17.7.2"
+    "typescript": "~5.3"
   },
   "scripts": {
     "start": "node build/src/app.js",
@@ -34,6 +31,9 @@
   "author": "victorbutler@gmail.com",
   "license": "MIT",
   "dependencies": {
-    "tslib": "~2.6"
+    "colors-cli": "^1.0.33",
+    "dotenv": "^16.4.5",
+    "tslib": "~2.6",
+    "yargs": "^17.7.2"
   }
 }
