@@ -10,6 +10,7 @@ FROM node:20-alpine AS run
 
 ENV INPUT=/input
 ENV OUTPUT=/output
+ENV NODE_ENV=production
 
 WORKDIR /app
 COPY --from=build /app/build/src/ /app/
