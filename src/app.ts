@@ -1,5 +1,5 @@
 import dotenv from 'dotenv';
-import { existsSync, mkdirSync } from 'node:fs';
+import { existsSync, mkdirSync, watchFile } from 'node:fs';
 import path from 'node:path';
 import fs from 'node:fs';
 import yargs from 'yargs/yargs';
@@ -16,23 +16,15 @@ const error = colors.red.bold,
   notice = colors.blue,
   info = colors.black.faint;
 
-type Arguments =
-  | {
-      [x: string]: unknown;
-      input: string;
-      output: string;
-      template: string;
-      _: (string | number)[];
-      $0: string;
-    }
-  | {
-      [x: string]: unknown;
-      input: string;
-      output: string;
-      template: string;
-      _: (string | number)[];
-      $0: string;
-    };
+type Arguments = {
+  [x: string]: unknown;
+  input: string;
+  output: string;
+  poll: boolean;
+  template: string;
+  _: (string | number)[];
+  $0: string;
+};
 
 export async function ProcessArgs(originalArgs: string[]): Promise<Arguments> {
   const argParser = yargs(originalArgs)
@@ -50,6 +42,12 @@ export async function ProcessArgs(originalArgs: string[]): Promise<Arguments> {
         demandOption: true,
         default: process.env.OUTPUT,
         describe: 'AudioBookshelf directory that contains all your audiobooks',
+      },
+      poll: {
+        type: 'boolean',
+        default: !!process.env.POLL || false,
+        describe:
+          "Switch watch method to poll instead of event based (use this if changes don't trigger updates)",
       },
       template: {
         type: 'string',
@@ -184,16 +182,29 @@ async function App(): Promise<void> {
   if (existsSync(booksPath)) {
     // Process books immediately
     await ProcessBooks(booksPath, argv);
-    // Watch books.json for changes
-    console.log(notice(`🔎 Watching books.json at: ${booksPath}`));
     // Consider polling to work around lack of WSL and Docker volume mapping support
-    const watcher = watch(booksPath);
-    for await (const event of watcher) {
-      if (event.eventType === 'change') {
-        console.log(
-          notice(`🔔 ${booksPath} updated at ${new Date().toISOString()}`),
-        );
-        await ProcessBooks(booksPath, argv);
+    if (argv.poll) {
+      watchFile(booksPath, async (curr) => {
+        if (curr.isFile()) {
+          console.log(
+            notice(`🔔 ${booksPath} updated at ${new Date().toISOString()}`),
+          );
+          await ProcessBooks(booksPath, argv);
+        }
+      });
+      // Watch books.json for changes
+      console.log(notice(`🔎 Watching books.json via polling at: ${booksPath}`));
+    } else {
+      // Watch books.json for changes
+      console.log(notice(`🔎 Watching books.json at: ${booksPath}`));
+      const watcher = watch(booksPath);
+      for await (const event of watcher) {
+        if (event.eventType === 'change') {
+          console.log(
+            notice(`🔔 ${booksPath} updated at ${new Date().toISOString()}`),
+          );
+          await ProcessBooks(booksPath, argv);
+        }
       }
     }
   } else {
