@@ -1,6 +1,6 @@
 {
   "name": "openaudible-audiobookshelf-watcher",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Convert OpenAudible book directory structure to AudioBookshelf structure",
   "main": "app.js",
   "type": "module",
