@@ -1,5 +1,5 @@
 import dotenv from 'dotenv';
-import { existsSync, mkdirSync, watchFile } from 'node:fs';
+import { existsSync, mkdirSync, unwatchFile, watchFile } from 'node:fs';
 import path from 'node:path';
 import fs from 'node:fs';
 import yargs from 'yargs/yargs';
@@ -14,7 +14,8 @@ dotenv.config();
 const error = colors.red.bold,
   warning = colors.yellow,
   notice = colors.blue,
-  info = colors.white.faint;
+  info = colors.white.faint,
+  system = colors.blink.magenta;
 
 type Arguments = {
   [x: string]: unknown;
@@ -177,6 +178,12 @@ export async function ProcessBooks(
 async function App(): Promise<void> {
   // Get input and output paths
   const argv = await ProcessArgs(process.argv.slice(2));
+  // Startup
+  console.log(system(`Starting up at ${(new Date()).toISOString()} with options:`));
+  console.log(system(`  input: ${argv.input}`));
+  console.log(system(`  output: ${argv.output}`));
+  console.log(system(`  poll: ${argv.poll}`));
+  console.log(system(`  template: ${argv.template}`));
   // Look for books.json in input
   const booksPath = path.join(argv.input, 'books.json');
   if (existsSync(booksPath)) {
@@ -193,18 +200,42 @@ async function App(): Promise<void> {
         }
       });
       // Watch books.json for changes
-      console.log(notice(`🔎 Watching books.json via polling at: ${booksPath}`));
+      console.log(
+        notice(`🔎 Watching books.json via polling at: ${booksPath}`),
+      );
+      // Handle Crtl+C
+      process.on('SIGINT', () => {
+        console.log(system(`Shutting down at ${(new Date()).toISOString()}`));
+        unwatchFile(booksPath);
+        process.exit(0);
+      });
     } else {
       // Watch books.json for changes
       console.log(notice(`🔎 Watching books.json at: ${booksPath}`));
-      const watcher = watch(booksPath);
-      for await (const event of watcher) {
-        if (event.eventType === 'change') {
-          console.log(
-            notice(`🔔 ${booksPath} updated at ${new Date().toISOString()}`),
-          );
-          await ProcessBooks(booksPath, argv);
+      // Abort the await watcher
+      const ac = new AbortController();
+      const { signal } = ac;
+      try {
+        const watcher = watch(booksPath, { signal });
+        // Handle Crtl+C
+        process.on('SIGINT', () => {
+          console.log(system(`Shutting down at ${(new Date()).toISOString()}`));
+          ac.abort();
+          process.exit(0);
+        });
+        for await (const event of watcher) {
+          if (event.eventType === 'change') {
+            console.log(
+              notice(`🔔 ${booksPath} updated at ${new Date().toISOString()}`),
+            );
+            await ProcessBooks(booksPath, argv);
+          }
         }
+      } catch (e) {
+        if (e.name === 'AbortError') {
+          return;
+        }
+        throw e;
       }
     }
   } else {
