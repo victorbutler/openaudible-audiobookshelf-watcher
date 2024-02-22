@@ -1,0 +1,15 @@
+---
+version: "3.3"
+
+services:
+  oa-watcher:
+    container_name: oa-watcher
+    image: ghcr.io/victorbutler/openaudible-audiobookshelf-watcher:latest
+    restart: unless-stopped
+    environment:
+      - INPUT=/input
+      - OUTPUT=/output
+      - POLL=
+    volumes:
+      - /input:/input
+      - /output:/output
