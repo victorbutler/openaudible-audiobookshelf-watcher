@@ -122,7 +122,10 @@ export function ProcessBook(argv: Arguments) {
   };
 }
 
-export async function ProcessBooks(booksPath: string, argv: Arguments) {
+export async function ProcessBooks(
+  booksPath: string,
+  argv: Arguments,
+): Promise<void> {
   // Read and collect book objects
   const books = JSON.parse(fs.readFileSync(booksPath).toString()) as Books;
   // Compose input / output mapping
