@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import yargs from 'yargs/yargs';
 import util from 'node:util';
 import colors from 'colors-cli/safe';
-import { copyFile } from 'node:fs/promises';
+import { copyFile, watch } from 'node:fs/promises';
 
 import type { Book, Books } from './app.types.js';
 
@@ -122,15 +122,27 @@ export function ProcessBook(argv: Arguments) {
   };
 }
 
+export async function ProcessBooks(booksPath: string, argv: Arguments) {
+  // Read and collect book objects
+  const books = JSON.parse(fs.readFileSync(booksPath).toString()) as Books;
+  // Compose input / output mapping
+  await Promise.all(books.map(ProcessBook(argv)));
+}
+
 async function App(): Promise<void> {
   // Get input and output paths
   const argv = await ProcessArgs(process.argv.slice(2));
   // Look for books.json in input
   const booksPath = path.join(argv.input, 'books.json');
   if (existsSync(booksPath)) {
-    const books = JSON.parse(fs.readFileSync(booksPath).toString()) as Books;
-    // Compose input / output mapping
-    await Promise.all(books.map(ProcessBook(argv)));
+    // Watch books.json for changes
+    const watcher = watch(booksPath);
+    for await (const event of watcher) {
+      if (event.filename) {
+        await ProcessBooks(booksPath, argv);
+      }
+    }
+    await ProcessBooks(booksPath, argv);
   } else {
     throw new Error(`books.json not found in input: ${argv.input}`);
   }
