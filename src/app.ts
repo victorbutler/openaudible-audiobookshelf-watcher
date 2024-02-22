@@ -14,7 +14,7 @@ dotenv.config();
 const error = colors.red.bold,
   warning = colors.yellow,
   notice = colors.blue,
-  info = colors.black.faint;
+  info = colors.white.faint;
 
 type Arguments = {
   [x: string]: unknown;
