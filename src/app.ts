@@ -55,7 +55,7 @@ export async function ProcessArgs(originalArgs: string[]): Promise<Arguments> {
         type: 'number',
         default: process.env.WAIT_SECONDS || 60,
         describe:
-          "Wait this many seconds after a change is detected to execute the change procedure",
+          'Wait this many seconds after a change is detected to execute the change procedure',
       },
       template: {
         type: 'string',
@@ -186,7 +186,9 @@ async function App(): Promise<void> {
   // Get input and output paths
   const argv = await ProcessArgs(process.argv.slice(2));
   // Startup
-  console.log(system(`Starting up at ${(new Date()).toISOString()} with options:`));
+  console.log(
+    system(`Starting up at ${new Date().toISOString()} with options:`),
+  );
   console.log(system(`  input: ${argv.input}`));
   console.log(system(`  output: ${argv.output}`));
   console.log(system(`  poll: ${argv.poll}`));
@@ -212,7 +214,7 @@ async function App(): Promise<void> {
       );
       // Handle Crtl+C
       process.on('SIGINT', () => {
-        console.log(system(`Shutting down at ${(new Date()).toISOString()}`));
+        console.log(system(`Shutting down at ${new Date().toISOString()}`));
         unwatchFile(booksPath);
         process.exit(0);
       });
@@ -227,7 +229,7 @@ async function App(): Promise<void> {
         const watcher = watch(booksPath, { signal });
         // Handle Crtl+C
         process.on('SIGINT', () => {
-          console.log(system(`Shutting down at ${(new Date()).toISOString()}`));
+          console.log(system(`Shutting down at ${new Date().toISOString()}`));
           ac.abort();
           process.exit(0);
         });
@@ -237,12 +239,13 @@ async function App(): Promise<void> {
               notice(`🔔 ${booksPath} updated at ${new Date().toISOString()}`),
             );
             // Wait some time before executing
-            if (!timeoutRef) { // Don't stack executions if we're pending an execution
+            if (!timeoutRef) {
+              // Don't stack executions if we're pending an execution
               timeoutRef = setTimeout(async () => {
                 await ProcessBooks(booksPath, argv);
                 clearTimeout(timeoutRef);
                 timeoutRef = undefined;
-              }, argv.wait_seconds*1000);
+              }, argv.wait_seconds * 1000);
             }
           }
         }
