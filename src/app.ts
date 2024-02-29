@@ -201,7 +201,7 @@ async function App(): Promise<void> {
     // Watch books for changes
     console.log(notice(`🔎 Watching books at: ${booksDir}`));
 
-    const watchDir = watch(booksDir, {
+    const watchDir = watch([booksJsonPath, booksDir], {
       awaitWriteFinish: {
         stabilityThreshold: 2000,
         pollInterval: 100,
@@ -215,7 +215,7 @@ async function App(): Promise<void> {
       filename: string,
     ): Promise<void> => {
       console.log(
-        notice(`🔔 ${filename} ${event} at ${new Date().toISOString()}`),
+        notice(`🔔 ${filename} triggered ${event} event at ${new Date().toISOString()}`),
       );
       await ProcessBooks(booksJsonPath, argv);
     };

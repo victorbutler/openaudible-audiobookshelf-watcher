@@ -13,10 +13,10 @@ ENV OUTPUT=/output
 ENV NODE_ENV=production
 
 WORKDIR /app
-COPY --from=build /app/build/src/ /app/
+COPY --from=build /app/build/ /app/
 COPY package.json package-lock.json /app/
 RUN npm ci --omit=dev
 
 VOLUME [ "/input", "/output" ]
 
-CMD ["node", "app.js"]
+CMD ["node", "src/app.js"]
