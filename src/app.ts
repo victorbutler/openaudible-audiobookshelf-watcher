@@ -7,6 +7,7 @@ import util from 'node:util';
 import colors from 'colors-cli/safe';
 import { copyFile, stat } from 'node:fs/promises';
 import { watch } from 'chokidar';
+import pkg from '../package.json' with { type: 'json' };
 
 import type { Book, Books } from './app.types.js';
 
@@ -181,12 +182,15 @@ async function App(): Promise<void> {
   const argv = await ProcessArgs(process.argv.slice(2));
   // Startup
   console.log(
-    system(`Starting up at ${new Date().toISOString()} with options:`),
+    system(
+      `Starting up v${
+        pkg.version
+      } at ${new Date().toISOString()} with options:`,
+    ),
   );
   console.log(system(`  input: ${argv.input}`));
   console.log(system(`  output: ${argv.output}`));
   console.log(system(`  poll: ${argv.poll}`));
-  console.log(system(`  wait_seconds: ${argv.wait_seconds}`));
   console.log(system(`  template: ${argv.template}`));
   // Look for books.json in input
   const booksJsonPath = path.join(argv.input, 'books.json');
@@ -196,35 +200,32 @@ async function App(): Promise<void> {
     await ProcessBooks(booksJsonPath, argv);
     // Watch books for changes
     console.log(notice(`🔎 Watching books at: ${booksDir}`));
-    try {
-      const watchDir = watch(booksDir, {
-        awaitWriteFinish: {
-          stabilityThreshold: 2000,
-          pollInterval: 100,
-        },
-        // Consider polling to work around lack of WSL and Docker volume mapping support
-        usePolling: argv.poll,
-        ignoreInitial: true,
-      });
-      const watchThis = async (
-        event: 'add' | 'addDir' | 'change' | 'unlink' | 'unlinkDir',
-        filename: string,
-      ) => {
-        console.log(
-          notice(`🔔 ${filename} ${event} at ${new Date().toISOString()}`),
-        );
-        await ProcessBooks(booksJsonPath, argv);
-      };
-      watchDir.on('all', watchThis);
-      // Handle Crtl+C
-      process.on('SIGINT', () => {
-        console.log(system(`Shutting down at ${new Date().toISOString()}`));
-        watchDir.off('all', watchThis);
-        process.exit(0);
-      });
-    } catch (e) {
-      throw e;
-    }
+
+    const watchDir = watch(booksDir, {
+      awaitWriteFinish: {
+        stabilityThreshold: 2000,
+        pollInterval: 100,
+      },
+      // Consider polling to work around lack of WSL and Docker volume mapping support
+      usePolling: argv.poll,
+      ignoreInitial: true,
+    });
+    const watchThis = async (
+      event: 'add' | 'addDir' | 'change' | 'unlink' | 'unlinkDir',
+      filename: string,
+    ): Promise<void> => {
+      console.log(
+        notice(`🔔 ${filename} ${event} at ${new Date().toISOString()}`),
+      );
+      await ProcessBooks(booksJsonPath, argv);
+    };
+    watchDir.on('all', watchThis);
+    // Handle Crtl+C
+    process.on('SIGINT', () => {
+      console.log(system(`Shutting down at ${new Date().toISOString()}`));
+      watchDir.off('all', watchThis);
+      process.exit(0);
+    });
   } else {
     throw new Error(`books.json not found in input: ${argv.input}`);
   }

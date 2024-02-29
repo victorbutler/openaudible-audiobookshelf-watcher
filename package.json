@@ -1,6 +1,6 @@
 {
   "name": "openaudible-audiobookshelf-watcher",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "description": "Convert OpenAudible book directory structure to AudioBookshelf structure",
   "main": "app.js",
   "type": "module",
@@ -9,6 +9,7 @@
   },
   "devDependencies": {
     "@types/node": "~20",
+    "@types/yargs": "^17.0.32",
     "@typescript-eslint/eslint-plugin": "~6.15",
     "@typescript-eslint/parser": "~6.15",
     "eslint": "~8.56",
