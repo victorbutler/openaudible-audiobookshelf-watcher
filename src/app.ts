@@ -1,11 +1,12 @@
 import dotenv from 'dotenv';
-import { existsSync, mkdirSync, unwatchFile, watchFile } from 'node:fs';
+import { existsSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
 import fs from 'node:fs';
 import yargs from 'yargs/yargs';
 import util from 'node:util';
 import colors from 'colors-cli/safe';
-import { copyFile, stat, watch } from 'node:fs/promises';
+import { copyFile, stat } from 'node:fs/promises';
+import { watch } from 'chokidar';
 
 import type { Book, Books } from './app.types.js';
 
@@ -22,7 +23,6 @@ type Arguments = {
   input: string;
   output: string;
   poll: boolean;
-  wait_seconds: number;
   template: string;
   _: (string | number)[];
   $0: string;
@@ -50,12 +50,6 @@ export async function ProcessArgs(originalArgs: string[]): Promise<Arguments> {
         default: !!process.env.POLL || false,
         describe:
           "Switch watch method to poll instead of event based (use this if changes don't trigger updates)",
-      },
-      wait_seconds: {
-        type: 'number',
-        default: process.env.WAIT_SECONDS || 60,
-        describe:
-          'Wait this many seconds after a change is detected to execute the change procedure',
       },
       template: {
         type: 'string',
@@ -173,11 +167,11 @@ export function ProcessBook(argv: Arguments) {
 }
 
 export async function ProcessBooks(
-  booksPath: string,
+  booksJsonPath: string,
   argv: Arguments,
 ): Promise<void> {
   // Read and collect book objects
-  const books = JSON.parse(fs.readFileSync(booksPath).toString()) as Books;
+  const books = JSON.parse(fs.readFileSync(booksJsonPath).toString()) as Books;
   // Compose input / output mapping
   await Promise.all(books.map(ProcessBook(argv)));
 }
@@ -192,71 +186,44 @@ async function App(): Promise<void> {
   console.log(system(`  input: ${argv.input}`));
   console.log(system(`  output: ${argv.output}`));
   console.log(system(`  poll: ${argv.poll}`));
+  console.log(system(`  wait_seconds: ${argv.wait_seconds}`));
   console.log(system(`  template: ${argv.template}`));
   // Look for books.json in input
-  const booksPath = path.join(argv.input, 'books.json');
-  if (existsSync(booksPath)) {
+  const booksJsonPath = path.join(argv.input, 'books.json');
+  const booksDir = path.join(argv.input, 'books');
+  if (existsSync(booksJsonPath)) {
     // Process books immediately
-    await ProcessBooks(booksPath, argv);
-    // Consider polling to work around lack of WSL and Docker volume mapping support
-    if (argv.poll) {
-      watchFile(booksPath, async (curr) => {
-        if (curr.isFile()) {
-          console.log(
-            notice(`🔔 ${booksPath} updated at ${new Date().toISOString()}`),
-          );
-          await ProcessBooks(booksPath, argv);
-        }
+    await ProcessBooks(booksJsonPath, argv);
+    // Watch books for changes
+    console.log(notice(`🔎 Watching books at: ${booksDir}`));
+    try {
+      const watchDir = watch(booksDir, {
+        awaitWriteFinish: {
+          stabilityThreshold: 2000,
+          pollInterval: 100,
+        },
+        // Consider polling to work around lack of WSL and Docker volume mapping support
+        usePolling: argv.poll,
+        ignoreInitial: true,
       });
-      // Watch books.json for changes
-      console.log(
-        notice(`🔎 Watching books.json via polling at: ${booksPath}`),
-      );
+      const watchThis = async (
+        event: 'add' | 'addDir' | 'change' | 'unlink' | 'unlinkDir',
+        filename: string,
+      ) => {
+        console.log(
+          notice(`🔔 ${filename} ${event} at ${new Date().toISOString()}`),
+        );
+        await ProcessBooks(booksJsonPath, argv);
+      };
+      watchDir.on('all', watchThis);
       // Handle Crtl+C
       process.on('SIGINT', () => {
         console.log(system(`Shutting down at ${new Date().toISOString()}`));
-        unwatchFile(booksPath);
+        watchDir.off('all', watchThis);
         process.exit(0);
       });
-    } else {
-      // Watch books.json for changes
-      console.log(notice(`🔎 Watching books.json at: ${booksPath}`));
-      // Abort the await watcher
-      const ac = new AbortController();
-      const { signal } = ac;
-      let timeoutRef;
-      try {
-        const watcher = watch(booksPath, { signal });
-        // Handle Crtl+C
-        process.on('SIGINT', () => {
-          console.log(system(`Shutting down at ${new Date().toISOString()}`));
-          ac.abort();
-          process.exit(0);
-        });
-        for await (const event of watcher) {
-          if (event.eventType === 'change') {
-            console.log(
-              notice(`🔔 ${booksPath} updated at ${new Date().toISOString()}`),
-            );
-            // Wait some time before executing
-            if (!timeoutRef) {
-              // Don't stack executions if we're pending an execution
-              timeoutRef = setTimeout(async () => {
-                await ProcessBooks(booksPath, argv);
-                clearTimeout(timeoutRef);
-                timeoutRef = undefined;
-              }, argv.wait_seconds * 1000);
-            }
-          }
-        }
-      } catch (e) {
-        clearTimeout(timeoutRef);
-        timeoutRef = undefined;
-        if (e.name === 'AbortError') {
-          return;
-        }
-        throw e;
-      }
+    } catch (e) {
+      throw e;
     }
   } else {
     throw new Error(`books.json not found in input: ${argv.input}`);

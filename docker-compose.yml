@@ -9,8 +9,7 @@ services:
     environment:
       - INPUT=/input
       - OUTPUT=/output
-      - POLL=
-      - WAIT_SECONDS=30
+      - POLL=true
     volumes:
       - /input:/input
       - /output:/output
