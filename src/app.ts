@@ -22,6 +22,7 @@ type Arguments = {
   input: string;
   output: string;
   poll: boolean;
+  wait_seconds: number;
   template: string;
   _: (string | number)[];
   $0: string;
@@ -49,6 +50,12 @@ export async function ProcessArgs(originalArgs: string[]): Promise<Arguments> {
         default: !!process.env.POLL || false,
         describe:
           "Switch watch method to poll instead of event based (use this if changes don't trigger updates)",
+      },
+      wait_seconds: {
+        type: 'number',
+        default: process.env.WAIT_SECONDS || 60,
+        describe:
+          "Wait this many seconds after a change is detected to execute the change procedure",
       },
       template: {
         type: 'string',
@@ -215,6 +222,7 @@ async function App(): Promise<void> {
       // Abort the await watcher
       const ac = new AbortController();
       const { signal } = ac;
+      let timeoutRef;
       try {
         const watcher = watch(booksPath, { signal });
         // Handle Crtl+C
@@ -228,10 +236,19 @@ async function App(): Promise<void> {
             console.log(
               notice(`🔔 ${booksPath} updated at ${new Date().toISOString()}`),
             );
-            await ProcessBooks(booksPath, argv);
+            // Wait some time before executing
+            if (!timeoutRef) { // Don't stack executions if we're pending an execution
+              timeoutRef = setTimeout(async () => {
+                await ProcessBooks(booksPath, argv);
+                clearTimeout(timeoutRef);
+                timeoutRef = undefined;
+              }, argv.wait_seconds*1000);
+            }
           }
         }
       } catch (e) {
+        clearTimeout(timeoutRef);
+        timeoutRef = undefined;
         if (e.name === 'AbortError') {
           return;
         }

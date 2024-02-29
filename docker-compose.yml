@@ -10,6 +10,7 @@ services:
       - INPUT=/input
       - OUTPUT=/output
       - POLL=
+      - WAIT_SECONDS=30
     volumes:
       - /input:/input
       - /output:/output
